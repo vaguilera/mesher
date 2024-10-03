@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/vaguilera/mesher/pkg/vec3"
 	"io"
 	"os"
 )
@@ -36,10 +37,11 @@ type F3DS struct {
 }
 
 type Mesh struct {
-	Name       string
-	VertexList []Vertex
-	FacesList  []Face
-	CoordsList []Coord
+	Name        string
+	VertexList  []vec3.Vec3
+	FacesList   []Face
+	CoordsList  []Coord
+	NormalsList []vec3.Vec3
 }
 
 type Material struct {
@@ -54,10 +56,6 @@ type Chunk struct {
 	ID   uint16
 	Len  uint32
 	Data []byte
-}
-
-type Vertex struct {
-	X, Y, Z float32
 }
 
 type Face struct {
@@ -184,7 +182,6 @@ func (f3ds *F3DS) processMaterial(data []byte) (Material, error) {
 		}
 	}
 
-	//return nil
 }
 
 func (f3ds *F3DS) processCoordinates(data []byte) ([]Coord, error) {
@@ -225,16 +222,16 @@ func (f3ds *F3DS) processFaces(data []byte) ([]Face, error) {
 	return faceList, nil
 }
 
-func (f3ds *F3DS) processTriangleList(data []byte) ([]Vertex, error) {
+func (f3ds *F3DS) processTriangleList(data []byte) ([]vec3.Vec3, error) {
 	r := bytes.NewReader(data)
 	var numVert uint16
 	if err := binary.Read(r, binary.LittleEndian, &numVert); err != nil {
 		return nil, err
 	}
 
-	var vertexList []Vertex
+	var vertexList []vec3.Vec3
 	for i := uint16(0); i < numVert; i++ {
-		var vert Vertex
+		var vert vec3.Vec3
 		if err := binary.Read(r, binary.LittleEndian, &vert); err != nil {
 			return nil, fmt.Errorf("error reading vertices: %w", err)
 		}
@@ -277,7 +274,6 @@ func (f3ds *F3DS) processEditObject(data []byte) error {
 	idx := find0Byte(data)
 	name := string(data[:idx])
 	mesh := Mesh{Name: name}
-	//fmt.Printf("object name: %s\n", name)
 	r := bytes.NewReader(data[idx+1:])
 	for {
 		chunk, err := readChunk(r)
@@ -341,9 +337,45 @@ func (f3ds *F3DS) processFile(f *os.File) error {
 			return fmt.Errorf("error reading file: %s", err)
 		}
 		if chunk.ID == EDIT3DS_CHUNK {
-			return f3ds.processEditorChunk(chunk.Data)
+			if err := f3ds.processEditorChunk(chunk.Data); err != nil {
+				return err
+			}
+			break
 		}
 	}
+
+	for i := range f3ds.Meshes {
+		f3ds.GenerateNormals(i)
+	}
+	return nil
+}
+
+func (f3ds *F3DS) GenerateNormals(idx int) {
+	vertices := f3ds.Meshes[idx].VertexList
+	faces := f3ds.Meshes[idx].FacesList
+	vertexNormals := make([]vec3.Vec3, len(vertices))
+	faceNormals := make([]vec3.Vec3, len(faces))
+
+	// Calculate face normals
+	for i, face := range faces {
+		v1 := vec3.Sub(vertices[face.V2], vertices[face.V1])
+		v2 := vec3.Sub(vertices[face.V3], vertices[face.V1])
+		faceNormals[i] = vec3.CrossProduct(v1, v2)
+	}
+
+	// Accumulate normals for each vertex
+	for i, face := range faces {
+		vertexNormals[face.V1] = vec3.Add(vertexNormals[face.V1], faceNormals[i])
+		vertexNormals[face.V2] = vec3.Add(vertexNormals[face.V2], faceNormals[i])
+		vertexNormals[face.V3] = vec3.Add(vertexNormals[face.V3], faceNormals[i])
+	}
+
+	// Normalize the vertex normals
+	for i := range vertexNormals {
+		vertexNormals[i].Normalize()
+	}
+
+	f3ds.Meshes[idx].NormalsList = vertexNormals
 }
 
 func (f3ds *F3DS) LoadFile(file string) error {
@@ -352,14 +384,5 @@ func (f3ds *F3DS) LoadFile(file string) error {
 		return fmt.Errorf("error opening file: %s", err)
 	}
 	defer f.Close()
-	err = f3ds.processFile(f)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Printf("%#v\n", f3ds.Meshes)
-	}
-	for _, m := range f3ds.Meshes {
-		fmt.Printf("%s\t\tv: %d\t\tf: %d\t\tcoord: %d\n", m.Name, len(m.VertexList), len(m.FacesList), len(m.CoordsList))
-
-	}
-	return nil
+	return f3ds.processFile(f)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	f3ds "github.com/vaguilera/mesher/pkg/3ds"
+	"github.com/vaguilera/mesher/pkg/w3d"
 	"log"
 	"os"
 )
@@ -30,9 +31,7 @@ var rootCmd = &cobra.Command{
 }
 
 func main() {
-
 	if err := rootCmd.Execute(); err != nil {
-
 		os.Exit(1)
 	}
 }
@@ -44,4 +43,7 @@ func process3dsFile(args []string) {
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
+
+	w3d.New3WDFrom3DS(&f)
+
 }
