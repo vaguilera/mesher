@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	f3ds "github.com/vaguilera/mesher/pkg/3ds"
@@ -18,15 +19,12 @@ var rootCmd = &cobra.Command{
 		if len(args[0]) < 4 {
 			log.Fatalf("File source extension should be .3ds or .obj")
 		}
-
 		switch args[0][len(args[0])-3:] {
 		case "3ds":
 			process3dsFile(args)
 		default:
 			log.Fatalf("File source extension should be .3ds or .obj")
 		}
-
-		fmt.Println("fsdgdfgdf")
 	},
 }
 
@@ -44,6 +42,20 @@ func process3dsFile(args []string) {
 		log.Fatalf("%s", err)
 	}
 
-	w3d.New3WDFrom3DS(&f)
+	w3dfile := w3d.New3WDFrom3DS(&f)
 
+	jsonW3d, err := json.Marshal(w3dfile)
+	if err != nil {
+		fmt.Printf("error marshalling json: %s\n", err.Error())
+	}
+
+	outFile, err := os.Create(args[1])
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+	}
+	n, err := outFile.WriteString("export const w3d = '" + string(jsonW3d) + "';")
+	if err != nil {
+		fmt.Printf("error: %s\n", err.Error())
+	}
+	fmt.Printf("%s created. %d bytes\n", args[1], n)
 }
