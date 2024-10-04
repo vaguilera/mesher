@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	f3ds "github.com/vaguilera/mesher/pkg/3ds"
 	"math"
-	"slices"
 )
 
 type W3D struct {
@@ -13,10 +12,11 @@ type W3D struct {
 }
 
 type Mesh struct {
-	Name    string `json:"name"`
-	Normals bool   `json:"normals"`
-	Coords  bool   `json:"coords"`
-	Data    string `json:"data"`
+	Name     string `json:"name"`
+	Normals  bool   `json:"normals"`
+	Coords   bool   `json:"coords"`
+	Indexes  string `json:"indexes"`
+	Vertices string `json:"vertices"`
 }
 
 func getMeshFrom3DS(mesh f3ds.Mesh) Mesh {
@@ -73,14 +73,15 @@ func getMeshFrom3DS(mesh f3ds.Mesh) Mesh {
 		}
 	}
 
-	data := slices.Concat(findexes, vertexData)
-	encodedData := base64.StdEncoding.EncodeToString([]byte(data))
+	encodedIndexes := base64.StdEncoding.EncodeToString(findexes)
+	encodedVertices := base64.StdEncoding.EncodeToString(vertexData)
 
 	return Mesh{
-		Name:    mesh.Name,
-		Normals: isNorms,
-		Coords:  isCoords,
-		Data:    encodedData,
+		Name:     mesh.Name,
+		Normals:  isNorms,
+		Coords:   isCoords,
+		Indexes:  encodedIndexes,
+		Vertices: encodedVertices,
 	}
 }
 
