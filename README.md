@@ -1,10 +1,8 @@
 # mesher
-Convert 3DS formats into web-usable format
-
-Current version only support Autodesk 3DS files
+Convert 3DS/OBJ formats into web-usable format
 
 Usage:
-``Mesher <input.3ds> <output file>``
+``Mesher <input.3ds/input.obj> <output file>``
 
 W3D Format:
 ```go
@@ -38,8 +36,8 @@ vertices: []float32 {
 
 If the mesh doesn't have normals or texture coordinates, they are simply not included.
 Every value is little-endian encoded.
+Only triangular meshes are supported in OBJ 
 
 # ToDo
 - Add command flag to select meshes to export (currently evey mesh in the 3DS file is included)
-- Add support for OBJ files
 - Add command flag to skip normals generation
